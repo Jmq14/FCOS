@@ -344,7 +344,9 @@ def compute_thresholds_for_classes(coco_eval):
     recall = np.linspace(0, 1, num=precision.shape[0])
     recall = recall[:, None]
 
-    f_measure = (2 * precision * recall) / (np.maximum(precision + recall, 1e-6))
+    beta = 2
+
+    f_measure = ((1 + beta**2) * precision * recall) / (np.maximum(precision + beta**2 + recall, 1e-6))
     max_f_measure = f_measure.max(axis=0)
     max_f_measure_inds = f_measure.argmax(axis=0)
     scores = scores[max_f_measure_inds, range(len(max_f_measure_inds))]
