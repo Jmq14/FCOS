@@ -13,11 +13,14 @@ from fcos_core.structures.boxlist_ops import boxlist_iou
 
 
 def generate_pseudo_label_with_confidence_score(boxes, image_id, score_thre):
-
     scores = boxes.get_field("scores")
     _, idx = scores.sort(0, descending=True)
-    keep = torch.nonzero(scores >= score_thre).squeeze(1)
-
+    if isinstance(score_thre, float):
+        keep = torch.nonzero(scores >= score_thre).squeeze(1)
+    else:
+        labels = boxes.get_field("labels")
+        keep = torch.nonzero(scores >= score_thre[labels]).squeeze(1)
+        
     return idx[:len(keep)]
 
 def parse_predictions():
@@ -55,15 +58,17 @@ if __name__ == "__main__":
     annos_json = result_json['annotations']
     # anno_id = max([ann['id'] for ann in annos_json]) + 1
 
-    output_dir = '/home/mengqinj/capstone/output/stage3/coco_2017_train_partial/'
+    stage = 1
+    output_dir = '/home/mengqinj/capstone/output/stage{}/coco_2017_train_partial/'.format(stage)
     image_ids = torch.load(output_dir+'image_ids.pth')
     predictions = torch.load(output_dir+'predictions.pth')
     anno_id = max(torch.load(output_dir + 'box_ids.pth')) + 1
 
     imgIds=sorted(coco.getImgIds())
     catIds = list(range(2, 10))
-    threshold = 0.5
-    distance_thre = 2
+    # threshold = 0.5
+    threshold = torch.tensor([-1.0, 0.46633365750312805, 0.4409848749637604, 0.47267603874206543, 0.4707889258861542, 0.5220812559127808, 0.5358721613883972, 0.5226702690124512, 0.45160290598869324])
+    iou_threshold = 0.5
 
     cpu_device = torch.device("cpu")
 
@@ -114,7 +119,7 @@ if __name__ == "__main__":
             # remove predictions for partial labels
             for i in range(len(partial_boxes)):
                 matched = np.argmax(overlaps[i])
-                if overlaps[i, matched] >= 0.5:
+                if overlaps[i, matched] >= iou_threshold:
                     matched_id[matched] = False
 
             pseudo_labels = pseudo_labels[matched_id]
@@ -122,12 +127,10 @@ if __name__ == "__main__":
             pseudo_annos, anno_id = new_annotation_json(pseudo_labels, imgIds[im_idx], anno_id)
             annos_json.extend(pseudo_annos)
 
-    print('confidence score >= {}'.format(threshold))
-    # print(tp, fp, fn, sum_iou/tp, partial_box_num)
-    # print('PQ = ', sum_iou / (tp + 0.5*fp + 0.5*fn))
+    print('confidence threshold: {}'.format(threshold))
 
     result_json['annotations'] = annos_json
-    with open('pseudo_annotations_stage3.json', 'w') as f:
+    with open('pseudo_annotations_stage{}.json'.format(stage), 'w') as f:
         json.dump(result_json, f)
 
     print(partial_box_num, len(result_json['annotations']))

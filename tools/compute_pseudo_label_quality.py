@@ -23,7 +23,7 @@ def convert_box_to_boxlist(boxes, image_width, image_height):
 if __name__ == "__main__":
     dataDir='datasets/coco'
     dataType='train2017'
-    annFile='{}/annotations/instances_{}_pseudo.json'.format(dataDir,dataType)
+    annFile='{}/annotations/instances_{}_pseudo_stage2.json'.format(dataDir,dataType)
     annFile_ful='{}/annotations/instances_{}_full.json'.format(dataDir,dataType)
     coco=COCO(annFile)
     coco_full = COCO(annFile_ful)
@@ -89,8 +89,9 @@ if __name__ == "__main__":
             
             fp += pseudo_box_num - matched_cnt
 
-    print(tp, fp, fn, sum_iou/tp)
-    print('PQ = ', sum_iou / (tp + 0.5*fp + 0.5*fn))
-    print('partial_box_num_total:', partial_box_num_total)
-    print('missing_box_num_total:', missing_box_num_total)
-    print('pseudo_box_num_total:', pseudo_box_num_total)
+    print(tp, fp, sum_iou/tp)
+    print('TP={}, FP={}, FN={}, IoU Acc={}'.format(tp, fp, fn, sum_iou/tp))
+    print('PQ = {}'.format(sum_iou / (tp + 0.5*fp + 0.5*fn)))
+    print('partial_box_num_total: {}'.format(partial_box_num_total))
+    print('missing_box_num_total: {}'.format(missing_box_num_total))
+    print('pseudo_box_num_total: {}'.format(pseudo_box_num_total))
