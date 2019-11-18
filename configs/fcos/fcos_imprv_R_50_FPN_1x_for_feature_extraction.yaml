@@ -1,7 +1,7 @@
 # FCOS with improvements
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
-  WEIGHT: "FCOS_imprv_R_50_FPN_1x.pth"
+  WEIGHT: "/home/mengqinj/capstone/output/stage3/model_final.pth"
   RPN_ONLY: True
   FCOS_ON: True
   BACKBONE:
@@ -21,8 +21,8 @@ MODEL:
     CENTER_SAMPLING_RADIUS: 1.5
     IOU_LOSS_TYPE: "giou"
 DATASETS:
-  TRAIN: ("coco_2014_train", "coco_2014_valminusminival")
-  TEST: ("coco_2017_val",)
+  TRAIN: ("coco_2017_train_partial", )
+  TEST: ("coco_2017_train_partial", )
 INPUT:
   MIN_SIZE_TRAIN: (800,)
   MAX_SIZE_TRAIN: 1333
@@ -39,3 +39,4 @@ SOLVER:
   WARMUP_METHOD: "constant"
 TEST:
   IMS_PER_BATCH: 4
+OUTPUT_DIR: /home/mengqinj/capstone/output/stage3/

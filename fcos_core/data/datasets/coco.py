@@ -38,7 +38,8 @@ def has_valid_annotation(anno):
 
 class COCODataset(torchvision.datasets.coco.CocoDetection):
     def __init__(
-        self, ann_file, root, remove_images_without_annotations, transforms=None
+        self, ann_file, root, remove_images_without_annotations,
+        return_box_id=False,transforms=None
     ):
         super(COCODataset, self).__init__(root, ann_file)
         # sort indices for reproducible results
@@ -62,6 +63,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         }
         self.id_to_img_map = {k: v for k, v in enumerate(self.ids)}
         self._transforms = transforms
+        self._return_box_id = return_box_id
 
     def __getitem__(self, idx):
         img, anno = super(COCODataset, self).__getitem__(idx)
@@ -71,6 +73,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         anno = [obj for obj in anno if obj["iscrowd"] == 0]
 
         boxes = [obj["bbox"] for obj in anno]
+        boxes_ids = [obj["id"] for obj in anno]
         boxes = torch.as_tensor(boxes).reshape(-1, 4)  # guard against no boxes
         target = BoxList(boxes, img.size, mode="xywh").convert("xyxy")
 
@@ -79,9 +82,9 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         classes = torch.tensor(classes)
         target.add_field("labels", classes)
 
-        masks = [obj["segmentation"] for obj in anno]
-        masks = SegmentationMask(masks, img.size, mode='poly')
-        target.add_field("masks", masks)
+        # masks = [obj["segmentation"] for obj in anno]
+        # masks = SegmentationMask(masks, img.size, mode='poly')
+        # target.add_field("masks", masks)
 
         if anno and "keypoints" in anno[0]:
             keypoints = [obj["keypoints"] for obj in anno]
@@ -93,7 +96,10 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         if self._transforms is not None:
             img, target = self._transforms(img, target)
 
-        return img, target, idx
+        if self._return_box_id:
+            return img, target, idx, boxes_ids
+        else:
+            return img, target, idx
 
     def get_img_info(self, index):
         img_id = self.id_to_img_map[index]

@@ -29,6 +29,7 @@ class GeneralizedRCNN(nn.Module):
         self.backbone = build_backbone(cfg)
         self.rpn = build_rpn(cfg, self.backbone.out_channels)
         self.roi_heads = build_roi_heads(cfg, self.backbone.out_channels)
+        self.extract_feature = cfg.MODEL.EXTRACT_FEATURE
 
     def forward(self, images, targets=None):
         """
@@ -62,4 +63,7 @@ class GeneralizedRCNN(nn.Module):
             losses.update(proposal_losses)
             return losses
 
-        return result
+        if self.extract_feature:
+            return features, result
+        else:
+            return result
