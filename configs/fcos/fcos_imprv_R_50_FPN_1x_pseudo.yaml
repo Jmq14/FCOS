@@ -1,7 +1,9 @@
 # FCOS with improvements
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
-  WEIGHT: "/home/mengqinj/capstone/output/stage2/model_final.pth"
+  # WEIGHT: "catalog://ImageNetPretrained/MSRA/R-50"
+  # WEIGHT: "/home/mengqinj/capstone/output/stage3/model_final.pth"
+  WEIGHT: "/home/mengqinj/capstone/output/fcos_imprv_R_50_FPN_1x_0.5/model_final.pth"
   RPN_ONLY: True
   FCOS_ON: True
   BACKBONE:
@@ -20,6 +22,7 @@ MODEL:
     # Please refer to https://github.com/yqyao/FCOS_PLUS
     CENTER_SAMPLING_RADIUS: 1.5
     IOU_LOSS_TYPE: "giou"
+  PSEUDO_WEIGHT: 0.5
 DATASETS:
   TRAIN: ("coco_2017_train_pseudo", )
   TEST: ("coco_2017_val", )
@@ -34,9 +37,10 @@ SOLVER:
   BASE_LR: 0.01
   WEIGHT_DECAY: 0.0001
   STEPS: (60000, 80000)
-  MAX_ITER: 220000
+  MAX_ITER: 180000
   IMS_PER_BATCH: 4
   WARMUP_METHOD: "constant"
+  CHECKPOINT_PERIOD: 20000
 TEST:
-  IMS_PER_BATCH: 1
-OUTPUT_DIR: /home/mengqinj/capstone/output/stage3/
+  IMS_PER_BATCH: 6
+OUTPUT_DIR: /home/mengqinj/capstone/output/tmp
