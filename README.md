@@ -19,6 +19,7 @@ You may also want to see the original [README.md](MASKRCNN_README.md) of maskrcn
 To start with the semi-supervised learning, we need a partially labeled training set and its corresponding fully labeled one for evaluation.
 ```
 cp partial_datasets/*.json datasets/coco/annotations/
+mv datasets/coco/annotations/instances_train2017.json datasets/coco/annotations/instances_train2017_full.json 
 ```
 
 ## Pipeline
@@ -47,7 +48,8 @@ python tools/compute_pseudo_label_quality.py \
 ```
 
 ### Re-train
-Directly run the script `train.sh`(single GPU version) or `train_2gpu.sh` (multiple GPU version).
+Directly run the script `train.sh`(single GPU version) or `train_2gpu.sh` (multiple GPU version). Make sure the annotation file you want to use has been moved and renamed to `datasets/coco/instances_train2017_pseudo.json`.
+
 Note that, if you want to use a soft coefficient for the pseudo loss term, you can assign `MODEL.PSEUDO_WEIGHT` in the config file (usuallt we use `configs/fcos/fcos_imprv_R_50_FPN_1x_pseudo.yaml`).
 
 ### Miscellaneous
