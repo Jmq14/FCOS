@@ -39,7 +39,7 @@ def has_valid_annotation(anno):
 class COCODataset(torchvision.datasets.coco.CocoDetection):
     def __init__(
         self, ann_file, root, remove_images_without_annotations,
-        return_box_id=False,transforms=None
+        return_box_id=False, pseudo_weight=1., transforms=None
     ):
         super(COCODataset, self).__init__(root, ann_file)
         # sort indices for reproducible results
@@ -64,6 +64,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         self.id_to_img_map = {k: v for k, v in enumerate(self.ids)}
         self._transforms = transforms
         self._return_box_id = return_box_id
+        self._pseudo_weight = pseudo_weight
 
     def __getitem__(self, idx):
         img, anno = super(COCODataset, self).__getitem__(idx)
@@ -85,6 +86,10 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         # masks = [obj["segmentation"] for obj in anno]
         # masks = SegmentationMask(masks, img.size, mode='poly')
         # target.add_field("masks", masks)
+
+        weights = [self._pseudo_weight if 'ispseudo' in obj.keys() else 1. for obj in anno]
+        weights = torch.tensor(weights)
+        target.add_field("weights", weights)
 
         if anno and "keypoints" in anno[0]:
             keypoints = [obj["keypoints"] for obj in anno]

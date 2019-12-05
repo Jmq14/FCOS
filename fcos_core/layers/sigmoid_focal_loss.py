@@ -58,7 +58,7 @@ class SigmoidFocalLoss(nn.Module):
         self.gamma = gamma
         self.alpha = alpha
 
-    def forward(self, logits, targets):
+    def forward(self, logits, targets, weights):
         device = logits.device
         if logits.is_cuda:
             loss_func = sigmoid_focal_loss_cuda
@@ -66,6 +66,7 @@ class SigmoidFocalLoss(nn.Module):
             loss_func = sigmoid_focal_loss_cpu
 
         loss = loss_func(logits, targets, self.gamma, self.alpha)
+        loss = loss * weights.reshape(-1, 1)
         return loss.sum()
 
     def __repr__(self):

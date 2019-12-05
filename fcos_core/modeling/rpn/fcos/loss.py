@@ -119,19 +119,25 @@ class FCOSLossComputation(object):
         num_points_per_level = [len(points_per_level) for points_per_level in points]
         self.num_points_per_level = num_points_per_level
         points_all_level = torch.cat(points, dim=0)
-        labels, reg_targets = self.compute_targets_for_locations(
+        labels, reg_targets, weights = self.compute_targets_for_locations(
             points_all_level, targets, expanded_object_sizes_of_interest
         )
 
         for i in range(len(labels)):
             labels[i] = torch.split(labels[i], num_points_per_level, dim=0)
+            weights[i] = torch.split(weights[i], num_points_per_level, dim=0)
             reg_targets[i] = torch.split(reg_targets[i], num_points_per_level, dim=0)
 
         labels_level_first = []
+        weights_level_first = []
         reg_targets_level_first = []
         for level in range(len(points)):
             labels_level_first.append(
                 torch.cat([labels_per_im[level] for labels_per_im in labels], dim=0)
+            )
+
+            weights_level_first.append(
+                torch.cat([weights_per_im[level] for weights_per_im in weights], dim=0)
             )
 
             reg_targets_per_level = torch.cat([
@@ -143,10 +149,11 @@ class FCOSLossComputation(object):
                 reg_targets_per_level = reg_targets_per_level / self.fpn_strides[level]
             reg_targets_level_first.append(reg_targets_per_level)
 
-        return labels_level_first, reg_targets_level_first
+        return labels_level_first, reg_targets_level_first, weights_level_first
 
     def compute_targets_for_locations(self, locations, targets, object_sizes_of_interest):
         labels = []
+        weights = []
         reg_targets = []
         xs, ys = locations[:, 0], locations[:, 1]
 
@@ -155,6 +162,8 @@ class FCOSLossComputation(object):
             assert targets_per_im.mode == "xyxy"
             bboxes = targets_per_im.bbox
             labels_per_im = targets_per_im.get_field("labels")
+            weights_per_im = targets_per_im.get_field("weights")
+            # print("weights per image", weights_per_im)
             area = targets_per_im.area()
 
             l = xs[:, None] - bboxes[:, 0][None]
@@ -193,10 +202,13 @@ class FCOSLossComputation(object):
             labels_per_im = labels_per_im[locations_to_gt_inds]
             labels_per_im[locations_to_min_area == INF] = 0
 
+            weights_per_im = weights_per_im[locations_to_gt_inds]
+
             labels.append(labels_per_im)
+            weights.append(weights_per_im)
             reg_targets.append(reg_targets_per_im)
 
-        return labels, reg_targets
+        return labels, reg_targets, weights
 
     def compute_centerness_targets(self, reg_targets):
         left_right = reg_targets[:, [0, 2]]
@@ -221,17 +233,19 @@ class FCOSLossComputation(object):
         """
         N = box_cls[0].size(0)
         num_classes = box_cls[0].size(1)
-        labels, reg_targets = self.prepare_targets(locations, targets)
+        labels, reg_targets, weights = self.prepare_targets(locations, targets)
 
         box_cls_flatten = []
         box_regression_flatten = []
         centerness_flatten = []
         labels_flatten = []
+        weights_flatten = []
         reg_targets_flatten = []
         for l in range(len(labels)):
             box_cls_flatten.append(box_cls[l].permute(0, 2, 3, 1).reshape(-1, num_classes))
             box_regression_flatten.append(box_regression[l].permute(0, 2, 3, 1).reshape(-1, 4))
             labels_flatten.append(labels[l].reshape(-1))
+            weights_flatten.append(weights[l].reshape(-1))
             reg_targets_flatten.append(reg_targets[l].reshape(-1, 4))
             centerness_flatten.append(centerness[l].reshape(-1))
 
@@ -239,6 +253,7 @@ class FCOSLossComputation(object):
         box_regression_flatten = torch.cat(box_regression_flatten, dim=0)
         centerness_flatten = torch.cat(centerness_flatten, dim=0)
         labels_flatten = torch.cat(labels_flatten, dim=0)
+        weights_flatten = torch.cat(weights_flatten, dim=0)
         reg_targets_flatten = torch.cat(reg_targets_flatten, dim=0)
 
         pos_inds = torch.nonzero(labels_flatten > 0).squeeze(1)
@@ -254,11 +269,14 @@ class FCOSLossComputation(object):
 
         cls_loss = self.cls_loss_func(
             box_cls_flatten,
-            labels_flatten.int()
+            labels_flatten.int(),
+            weights_flatten
         ) / num_pos_avg_per_gpu
 
         if pos_inds.numel() > 0:
             centerness_targets = self.compute_centerness_targets(reg_targets_flatten)
+            weights_flatten = weights_flatten[pos_inds]
+            # print(centerness_targets.size(), weights_flatten.size(), box_regression_flatten.size())
 
             # average sum_centerness_targets from all gpus,
             # which is used to normalize centerness-weighed reg loss
@@ -268,12 +286,20 @@ class FCOSLossComputation(object):
             reg_loss = self.box_reg_loss_func(
                 box_regression_flatten,
                 reg_targets_flatten,
-                centerness_targets
+                centerness_targets * weights_flatten
             ) / sum_centerness_targets_avg_per_gpu
-            centerness_loss = self.centerness_loss_func(
-                centerness_flatten,
-                centerness_targets
-            ) / num_pos_avg_per_gpu
+
+            if weights_flatten.nonzero().size(0) < weights_flatten.size(0):
+                temp_centerness_loss_func = nn.BCEWithLogitsLoss(weight=weights_flatten, reduction="sum")
+                centerness_loss = temp_centerness_loss_func(
+                    centerness_flatten,
+                    centerness_targets
+                ) / num_pos_avg_per_gpu
+            else:
+                centerness_loss = self.centerness_loss_func(
+                    centerness_flatten,
+                    centerness_targets
+                ) / num_pos_avg_per_gpu
         else:
             reg_loss = box_regression_flatten.sum()
             reduce_sum(centerness_flatten.new_tensor([0.0]))
