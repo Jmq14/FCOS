@@ -20,17 +20,15 @@ def convert_box_to_boxlist(boxes, image_width, image_height):
     return boxes
 
 
-if __name__ == "__main__":
-    dataDir='datasets/coco'
-    dataType='train2017'
-    annFile='{}/annotations/instances_{}_pseudo_stage2.json'.format(dataDir,dataType)
-    annFile_ful='{}/annotations/instances_{}_full.json'.format(dataDir,dataType)
-    coco=COCO(annFile)
-    coco_full = COCO(annFile_ful)
+def main(args):
+    annFile = args.annotation
+    annFile_full = 'datasets/coco/annotations/instances_train2017_full.json'
+    coco = COCO(annFile)
+    coco_full = COCO(annFile_full)
 
     image_ids=sorted(coco.getImgIds())
     catIds = list(range(2, 10))
-    
+
     tp = 0
     fn = 0
     fp = 0
@@ -63,7 +61,7 @@ if __name__ == "__main__":
         partial_box_num_total += partial_box_num
         missing_box_num_total += missing_box_num
         pseudo_box_num_total += pseudo_box_num
-        
+
         pseudo_boxes = convert_box_to_boxlist(pseudo_boxes, image_width, image_height)
         partial_boxes = convert_box_to_boxlist(partial_boxes, image_width, image_height)
         missing_boxes = convert_box_to_boxlist(missing_boxes, image_width, image_height)
@@ -86,7 +84,7 @@ if __name__ == "__main__":
                     matched_cnt += 1
                 else:
                     fn += 1
-            
+
             fp += pseudo_box_num - matched_cnt
 
     print(tp, fp, sum_iou/tp)
@@ -95,3 +93,11 @@ if __name__ == "__main__":
     print('partial_box_num_total: {}'.format(partial_box_num_total))
     print('missing_box_num_total: {}'.format(missing_box_num_total))
     print('pseudo_box_num_total: {}'.format(pseudo_box_num_total))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--annotation", help="annotation json file path. e.g instances_train2017_pseudo.json",
+                    type=str, default="datasets/coco/annotations/instances_train2017_pseudo.json")
+    args = parser.parse_args()
+    main(args)

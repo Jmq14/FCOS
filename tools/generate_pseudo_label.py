@@ -45,39 +45,29 @@ def new_annotation_json(pseudo_labels, img_id, ann_id):
     return annos, ann_id
 
 
-if __name__ == "__main__":
-    dataDir='datasets/coco'
-    dataType='train2017'
-    annFile='{}/annotations/instances_{}_0.5.json'.format(dataDir,dataType)
-    annFile_ful='{}/annotations/instances_{}_full.json'.format(dataDir,dataType)
-    coco=COCO(annFile)
-    # coco_full = COCO(annFile_ful)
+def main(args):
+    annFile = 'datasets/coco/annotations/instances_train2017_0.5.json'
+    coco = COCO(annFile)
 
     with open(annFile, 'r') as f:
         result_json = json.load(f)
     annos_json = result_json['annotations']
     # anno_id = max([ann['id'] for ann in annos_json]) + 1
 
-    stage = 1
-    output_dir = '/home/mengqinj/capstone/output/stage{}/coco_2017_train_partial/'.format(stage)
-    image_ids = torch.load(output_dir+'image_ids.pth')
-    predictions = torch.load(output_dir+'predictions.pth')
-    anno_id = max(torch.load(output_dir + 'box_ids.pth')) + 1
+    output_dir = os.path.join(args.predictions, 'coco_2017_train_partial')
+    image_ids = torch.load(os.path.join(output_dir, 'image_ids.pth'))
+    predictions = torch.load(os.path.join(output_dir, 'predictions.pth'))
+    anno_id = max(torch.load(os.path.join(output_dir, 'box_ids.pth'))) + 1
 
     imgIds=sorted(coco.getImgIds())
-    catIds = list(range(2, 10))
-    # threshold = 0.5
-    threshold = torch.tensor([-1.0, 0.46633365750312805, 0.4409848749637604, 0.47267603874206543, 0.4707889258861542, 0.5220812559127808, 0.5358721613883972, 0.5226702690124512, 0.45160290598869324])
+    
+    threshold = args.confidence
+    # threshold = torch.tensor([-1.0, 0.46633365750312805, 0.4409848749637604, 0.47267603874206543, 0.4707889258861542, 0.5220812559127808, 0.5358721613883972, 0.5226702690124512, 0.45160290598869324])
     iou_threshold = 0.5
 
     cpu_device = torch.device("cpu")
 
-    tp = 0
-    fn = 0
-    fp = 0
-    sum_iou = 0
     partial_box_num = 0
-    missing_box_num = 0
 
     N = len(image_ids)
     for i in tqdm(range(N)):
@@ -130,7 +120,19 @@ if __name__ == "__main__":
     print('confidence threshold: {}'.format(threshold))
 
     result_json['annotations'] = annos_json
-    with open('pseudo_annotations_stage{}.json'.format(stage), 'w') as f:
+    with open(args.annotation, 'w') as f:
         json.dump(result_json, f)
 
     print(partial_box_num, len(result_json['annotations']))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--predictions", help="prediction directory path. e.g output/stage1/",
+                    type=str, default="/home/mengqinj/capstone/output/stage1/")
+    parser.add_argument("--annotation", help="output annotation path. e.g instances_train_2017.json",
+                    type=str, default="instances_train_2017.json")
+    parser.add_argument("--confidence", help="confidence score threshold",
+                    type=float, default=0.5)
+    args = parser.parse_args()
+    main(args)
